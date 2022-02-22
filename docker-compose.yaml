@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  server:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+
+  client:
+    build: 
+      context: .
+      dockerfile: client.Dockerfile
+    network_mode: host
+    command: /app-client -long 37.52 -lat 55.75 -rad 100
+    depends_on:
+      - server
+
