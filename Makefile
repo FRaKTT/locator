@@ -10,3 +10,6 @@ bin/client: ./cmd/client
 
 server-run: bin/server
 	bin/server
+
+test:
+	go test ./...
