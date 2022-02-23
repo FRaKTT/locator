@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -37,26 +38,23 @@ func New(sky Sky, cache PlanesCache) *App {
 	}
 
 	go func() { // start to watch the sky and update cache
+		// initial cache filling
+		log.Println("filling the cache...")
+		if err := a.updateCache(); err != nil {
+			log.Printf("fill cache: %s\n", err)
+		}
+
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		for {
 			select {
 			case <-ticker.C:
-				log.Println("cache update...")
-
-				planes, err := a.sky.AllPlanes()
-				if err != nil {
-					log.Printf("get all planes: %s\n", err)
+				log.Println("updating the cache...")
+				if err := a.updateCache(); err != nil {
+					log.Printf("update cache: %s\n", err)
 					break
 				}
-				a.cache.SetPlanes(planes)
-
-				a.clientsMx.Lock()
-				for _, c := range a.clientsMap {
-					c.ch <- a.calcPlanesInRadius(c.parameters)
-				}
-				a.clientsMx.Unlock()
 			}
 		}
 	}()
@@ -64,12 +62,21 @@ func New(sky Sky, cache PlanesCache) *App {
 	return a
 }
 
+// updateCache gets planes, writes them to cache and calculates number of planes for connected clients
 func (a *App) updateCache() error {
 	planes, err := a.sky.AllPlanes()
 	if err != nil {
-		return err
+		return fmt.Errorf("get all planes: %w", err)
 	}
+
 	a.cache.SetPlanes(planes)
+
+	a.clientsMx.Lock()
+	for _, c := range a.clientsMap {
+		c.ch <- a.calcPlanesInRadius(c.parameters)
+	}
+	a.clientsMx.Unlock()
+
 	return nil
 }
 
